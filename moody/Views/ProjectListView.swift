@@ -62,14 +62,22 @@ struct ProjectListView: View {
     private var renameAlertBinding: Binding<Bool> {
         Binding(
             get: { projectPendingRename != nil },
-            set: { if !$0 { projectPendingRename = nil } }
+            set: {
+                if !$0 {
+                    projectPendingRename = nil
+                }
+            }
         )
     }
 
     private var deleteConfirmationBinding: Binding<Bool> {
         Binding(
             get: { projectPendingDelete != nil },
-            set: { if !$0 { projectPendingDelete = nil } }
+            set: {
+                if !$0 {
+                    projectPendingDelete = nil
+                }
+            }
         )
     }
 

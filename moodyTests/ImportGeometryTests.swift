@@ -3,12 +3,11 @@
 //  moodyTests
 //
 
-import Testing
 import Foundation
+import Testing
 @testable import moody
 
 struct ImportGeometryTests {
-
     // MARK: - aspectFit
 
     @Test func aspectFitScalesDownLandscapeImageToMaxEdge() {

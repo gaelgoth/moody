@@ -3,12 +3,11 @@
 //  moodyTests
 //
 
-import Testing
 import Foundation
+import Testing
 @testable import moody
 
 struct FileStorageServiceTests {
-
     private func makeTempRoot() throws -> URL {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("moody-tests-\(UUID().uuidString)", isDirectory: true)

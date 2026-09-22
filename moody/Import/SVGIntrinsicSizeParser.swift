@@ -13,7 +13,8 @@ enum SVGIntrinsicSizeParser {
 
     static func parse(_ data: Data) -> CGSize {
         guard let text = String(data: data, encoding: .utf8),
-              let svgTag = firstSVGOpeningTag(in: text) else {
+              let svgTag = firstSVGOpeningTag(in: text)
+        else {
             return fallbackSize
         }
 
@@ -36,8 +37,8 @@ enum SVGIntrinsicSizeParser {
 
     private static func firstSVGOpeningTag(in text: String) -> String? {
         guard let start = text.range(of: "<svg") else { return nil }
-        guard let end = text.range(of: ">", range: start.upperBound..<text.endIndex) else { return nil }
-        return String(text[start.lowerBound..<end.upperBound])
+        guard let end = text.range(of: ">", range: start.upperBound ..< text.endIndex) else { return nil }
+        return String(text[start.lowerBound ..< end.upperBound])
     }
 
     private static func attributeValue(_ name: String, in tag: String) -> String? {

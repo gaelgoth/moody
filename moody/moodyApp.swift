@@ -5,8 +5,8 @@
 //  Created by Gaël Gothuey on 21.09.2026.
 //
 
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 @main
 struct moodyApp: App {

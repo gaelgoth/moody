@@ -3,13 +3,12 @@
 //  moodyTests
 //
 
-import Testing
-import Foundation
 import CoreGraphics
+import Foundation
+import Testing
 @testable import moody
 
 struct BoardSelectionGeometryTests {
-
     @Test func fullyOverlappingItemIsSelected() {
         let marquee = CGRect(x: 0, y: 0, width: 200, height: 200)
         let items = [(id: UUID(), center: CGPoint(x: 100, y: 100), size: CGSize(width: 40, height: 40))]
@@ -56,7 +55,7 @@ struct BoardSelectionGeometryTests {
         let items = [
             (id: idA, center: CGPoint(x: 50, y: 50), size: CGSize(width: 20, height: 20)),
             (id: idB, center: CGPoint(x: 150, y: 150), size: CGSize(width: 20, height: 20)),
-            (id: idOutside, center: CGPoint(x: 1000, y: 1000), size: CGSize(width: 20, height: 20))
+            (id: idOutside, center: CGPoint(x: 1000, y: 1000), size: CGSize(width: 20, height: 20)),
         ]
         let result = itemsIntersecting(marquee, items: items)
         #expect(result == [idA, idB])

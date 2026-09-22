@@ -3,12 +3,11 @@
 //  moodyTests
 //
 
-import Testing
 import Foundation
+import Testing
 @testable import moody
 
 struct SVGIntrinsicSizeParserTests {
-
     @Test func parsesSizeFromWidthAndHeightAttributes() {
         let svg = "<svg width=\"200\" height=\"100\" xmlns=\"http://www.w3.org/2000/svg\"></svg>"
         let size = SVGIntrinsicSizeParser.parse(Data(svg.utf8))

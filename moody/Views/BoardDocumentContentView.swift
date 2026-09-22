@@ -130,7 +130,7 @@ struct BoardDocumentContentView: View {
         .gesture(magnificationGesture)
         .onContinuousHover { phase in
             switch phase {
-            case .active(let point):
+            case let .active(point):
                 zoomAnchor = point
                 hoveredItemID = topmostItem(at: logicalPoint(from: point))?.id
             case .ended:
@@ -190,7 +190,6 @@ struct BoardDocumentContentView: View {
             }
     }
 
-    @ViewBuilder
     private func marqueeOverlay(_ rect: CGRect) -> some View {
         Rectangle()
             .fill(Color.accentColor.opacity(0.12))

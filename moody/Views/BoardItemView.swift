@@ -47,7 +47,7 @@ struct BoardItemView: View {
         if let image {
             Image(nsImage: image)
                 .resizable()
-                .aspectRatio(contentMode: .fit)
+                .scaledToFit()
                 .shadow(radius: 4)
         } else {
             Rectangle().fill(Color.gray.opacity(0.15))

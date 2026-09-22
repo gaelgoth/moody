@@ -73,17 +73,17 @@ final class SVGRasterizer: NSObject, WKNavigationDelegate {
         }
     }
 
-    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+    func webView(_: WKWebView, didFinish _: WKNavigation!) {
         loadContinuation?.resume()
         loadContinuation = nil
     }
 
-    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+    func webView(_: WKWebView, didFail _: WKNavigation!, withError error: Error) {
         loadContinuation?.resume(throwing: SVGRasterizationError.navigationFailed(error))
         loadContinuation = nil
     }
 
-    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+    func webView(_: WKWebView, didFailProvisionalNavigation _: WKNavigation!, withError error: Error) {
         loadContinuation?.resume(throwing: SVGRasterizationError.navigationFailed(error))
         loadContinuation = nil
     }

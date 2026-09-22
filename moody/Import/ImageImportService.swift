@@ -134,7 +134,8 @@ enum ImageImportService {
         guard let source = CGImageSourceCreateWithData(data as CFData, nil),
               let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
               let width = properties[kCGImagePropertyPixelWidth] as? Int,
-              let height = properties[kCGImagePropertyPixelHeight] as? Int else {
+              let height = properties[kCGImagePropertyPixelHeight] as? Int
+        else {
             throw ImageImportError.undecodableImage
         }
         return (width, height)

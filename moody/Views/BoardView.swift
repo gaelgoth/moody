@@ -20,9 +20,9 @@ struct BoardView: View {
     )
 
     init(project: Project) {
-        self._project = Bindable(project)
+        _project = Bindable(project)
         let projectID = project.id
-        self._items = Query(
+        _items = Query(
             filter: #Predicate<BoardItem> { $0.project?.id == projectID },
             sort: \BoardItem.zIndex
         )

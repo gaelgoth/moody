@@ -5,8 +5,8 @@
 //  Pure geometry for marquee (rubber-band) multi-select on the board canvas.
 //
 
-import Foundation
 import CoreGraphics
+import Foundation
 
 /// Ids of items whose bounding rect (center ± size/2) intersects `marqueeRect`.
 /// Uses ordinary rect intersection ("any overlap selects", matching Finder's

@@ -1,0 +1,159 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*.*.*"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  PROJECT: moody.xcodeproj
+  SCHEME: moody
+
+jobs:
+  build:
+    name: Lint, Test, Build & Package
+    runs-on: macos-latest
+    timeout-minutes: 30
+    outputs:
+      dmg_name: ${{ steps.package.outputs.dmg_name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Select Xcode 27
+        run: sudo xcode-select --switch /Applications/Xcode_27.0.app
+
+      - name: Show toolchain versions
+        run: |
+          xcodebuild -version
+          swiftformat --version
+          xcbeautify --version
+
+      - name: Install SwiftLint and create-dmg
+        run: brew install swiftlint create-dmg
+
+      - name: SwiftFormat (lint only)
+        run: swiftformat --lint .
+
+      - name: SwiftLint
+        run: swiftlint lint --strict
+
+      - name: Run unit + UI tests
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project "$PROJECT" \
+            -scheme "$SCHEME" \
+            -destination 'platform=macOS' \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            -resultBundlePath "$RUNNER_TEMP/TestResults.xcresult" \
+            -retry-tests-on-failure \
+            CODE_SIGN_IDENTITY=- \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=YES \
+            DEVELOPMENT_TEAM= \
+            | xcbeautify
+
+      - name: Upload test results on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results
+          path: ${{ runner.temp }}/TestResults.xcresult
+          if-no-files-found: ignore
+
+      - name: Determine app version
+        id: version
+        run: |
+          VERSION=$(xcodebuild -showBuildSettings -project "$PROJECT" -scheme "$SCHEME" \
+            -configuration Release -json 2>/dev/null | jq -r '.[0].buildSettings.MARKETING_VERSION')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Build Release
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project "$PROJECT" \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -destination 'platform=macOS' \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            CODE_SIGN_IDENTITY=- \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=YES \
+            DEVELOPMENT_TEAM= \
+            | xcbeautify
+
+      - name: Package DMG
+        id: package
+        run: |
+          set -euo pipefail
+          APP_PATH="$RUNNER_TEMP/DerivedData/Build/Products/Release/moody.app"
+          STAGE_DIR="$RUNNER_TEMP/dmg-stage"
+          mkdir -p "$STAGE_DIR"
+          cp -R "$APP_PATH" "$STAGE_DIR/"
+
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            NAME="moody-${{ github.ref_name }}"
+          else
+            NAME="moody-${{ steps.version.outputs.version }}-$(git rev-parse --short HEAD)"
+          fi
+          DMG_PATH="${NAME}.dmg"
+
+          create-dmg \
+            --volname "moody" \
+            --window-pos 200 120 \
+            --window-size 660 400 \
+            --icon-size 128 \
+            --icon "moody.app" 180 170 \
+            --app-drop-link 480 170 \
+            --hide-extension "moody.app" \
+            --skip-jenkins \
+            "$DMG_PATH" \
+            "$STAGE_DIR/" || true
+
+          test -f "$DMG_PATH"
+          echo "dmg_name=$DMG_PATH" >> "$GITHUB_OUTPUT"
+
+      - name: Upload DMG artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.package.outputs.dmg_name }}
+          path: ${{ steps.package.outputs.dmg_name }}
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download DMG artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: ${{ needs.build.outputs.dmg_name }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          files: ${{ needs.build.outputs.dmg_name }}
+          generate_release_notes: true
+          body: |
+            **Note:** this build is ad-hoc signed (not notarized). On first launch, Gatekeeper
+            will say it's from an "unidentified developer." Right-click (or Control-click) the
+            app in `/Applications` and choose **Open**, then confirm — or run:
+            `xattr -cr /Applications/moody.app`

@@ -3,14 +3,13 @@
 //  moodyTests
 //
 
-import Testing
-import SwiftData
-import Foundation
 import CoreGraphics
+import Foundation
+import SwiftData
+import Testing
 @testable import moody
 
 struct BoardGroupMoveTests {
-
     private func makeContext() throws -> ModelContext {
         let schema = Schema([Project.self, BoardItem.self])
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
@@ -22,8 +21,28 @@ struct BoardGroupMoveTests {
         let context = try makeContext()
         let project = Project(name: "Test")
         context.insert(project)
-        let a = BoardItem(fileName: "a.jpg", positionX: 10, positionY: 10, width: 40, height: 40, pixelWidth: 40, pixelHeight: 40, zIndex: 1, project: project)
-        let b = BoardItem(fileName: "b.jpg", positionX: 20, positionY: 20, width: 40, height: 40, pixelWidth: 40, pixelHeight: 40, zIndex: 2, project: project)
+        let a = BoardItem(
+            fileName: "a.jpg",
+            positionX: 10,
+            positionY: 10,
+            width: 40,
+            height: 40,
+            pixelWidth: 40,
+            pixelHeight: 40,
+            zIndex: 1,
+            project: project
+        )
+        let b = BoardItem(
+            fileName: "b.jpg",
+            positionX: 20,
+            positionY: 20,
+            width: 40,
+            height: 40,
+            pixelWidth: 40,
+            pixelHeight: 40,
+            zIndex: 2,
+            project: project
+        )
         context.insert(a)
         context.insert(b)
         try context.save()
@@ -40,8 +59,28 @@ struct BoardGroupMoveTests {
         let context = try makeContext()
         let project = Project(name: "Test")
         context.insert(project)
-        let moving = BoardItem(fileName: "a.jpg", positionX: 10, positionY: 10, width: 40, height: 40, pixelWidth: 40, pixelHeight: 40, zIndex: 1, project: project)
-        let stationary = BoardItem(fileName: "b.jpg", positionX: 20, positionY: 20, width: 40, height: 40, pixelWidth: 40, pixelHeight: 40, zIndex: 2, project: project)
+        let moving = BoardItem(
+            fileName: "a.jpg",
+            positionX: 10,
+            positionY: 10,
+            width: 40,
+            height: 40,
+            pixelWidth: 40,
+            pixelHeight: 40,
+            zIndex: 1,
+            project: project
+        )
+        let stationary = BoardItem(
+            fileName: "b.jpg",
+            positionX: 20,
+            positionY: 20,
+            width: 40,
+            height: 40,
+            pixelWidth: 40,
+            pixelHeight: 40,
+            zIndex: 2,
+            project: project
+        )
         context.insert(moving)
         context.insert(stationary)
         try context.save()
@@ -56,9 +95,39 @@ struct BoardGroupMoveTests {
         let context = try makeContext()
         let project = Project(name: "Test")
         context.insert(project)
-        let a = BoardItem(fileName: "a.jpg", positionX: 0, positionY: 0, width: 40, height: 40, pixelWidth: 40, pixelHeight: 40, zIndex: 1, project: project)
-        let b = BoardItem(fileName: "b.jpg", positionX: 0, positionY: 0, width: 40, height: 40, pixelWidth: 40, pixelHeight: 40, zIndex: 5, project: project)
-        let c = BoardItem(fileName: "c.jpg", positionX: 0, positionY: 0, width: 40, height: 40, pixelWidth: 40, pixelHeight: 40, zIndex: 3, project: project)
+        let a = BoardItem(
+            fileName: "a.jpg",
+            positionX: 0,
+            positionY: 0,
+            width: 40,
+            height: 40,
+            pixelWidth: 40,
+            pixelHeight: 40,
+            zIndex: 1,
+            project: project
+        )
+        let b = BoardItem(
+            fileName: "b.jpg",
+            positionX: 0,
+            positionY: 0,
+            width: 40,
+            height: 40,
+            pixelWidth: 40,
+            pixelHeight: 40,
+            zIndex: 5,
+            project: project
+        )
+        let c = BoardItem(
+            fileName: "c.jpg",
+            positionX: 0,
+            positionY: 0,
+            width: 40,
+            height: 40,
+            pixelWidth: 40,
+            pixelHeight: 40,
+            zIndex: 3,
+            project: project
+        )
         context.insert(a)
         context.insert(b)
         context.insert(c)
@@ -77,8 +146,28 @@ struct BoardGroupMoveTests {
         let project = Project(name: "Test")
         context.insert(project)
         // c was in front of a before the move (zIndex 4 > 1).
-        let a = BoardItem(fileName: "a.jpg", positionX: 0, positionY: 0, width: 40, height: 40, pixelWidth: 40, pixelHeight: 40, zIndex: 1, project: project)
-        let c = BoardItem(fileName: "c.jpg", positionX: 0, positionY: 0, width: 40, height: 40, pixelWidth: 40, pixelHeight: 40, zIndex: 4, project: project)
+        let a = BoardItem(
+            fileName: "a.jpg",
+            positionX: 0,
+            positionY: 0,
+            width: 40,
+            height: 40,
+            pixelWidth: 40,
+            pixelHeight: 40,
+            zIndex: 1,
+            project: project
+        )
+        let c = BoardItem(
+            fileName: "c.jpg",
+            positionX: 0,
+            positionY: 0,
+            width: 40,
+            height: 40,
+            pixelWidth: 40,
+            pixelHeight: 40,
+            zIndex: 4,
+            project: project
+        )
         context.insert(a)
         context.insert(c)
         try context.save()
@@ -92,7 +181,17 @@ struct BoardGroupMoveTests {
         let context = try makeContext()
         let project = Project(name: "Test")
         context.insert(project)
-        let a = BoardItem(fileName: "a.jpg", positionX: 10, positionY: 10, width: 40, height: 40, pixelWidth: 40, pixelHeight: 40, zIndex: 1, project: project)
+        let a = BoardItem(
+            fileName: "a.jpg",
+            positionX: 10,
+            positionY: 10,
+            width: 40,
+            height: 40,
+            pixelWidth: 40,
+            pixelHeight: 40,
+            zIndex: 1,
+            project: project
+        )
         context.insert(a)
         try context.save()
 

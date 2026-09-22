@@ -25,7 +25,7 @@ struct BoardCanvasView: NSViewRepresentable {
     @Binding var zoomScale: CGFloat
     @Binding var zoomAnchor: CGPoint
 
-    static let documentSize = CGSize(width: 20_000, height: 20_000)
+    static let documentSize = CGSize(width: 20000, height: 20000)
 
     final class Coordinator {
         var previousZoomScale: CGFloat = 1
@@ -35,13 +35,19 @@ struct BoardCanvasView: NSViewRepresentable {
         Coordinator()
     }
 
-    func makeNSView(context: Context) -> NSScrollView {
+    func makeNSView(context _: Context) -> NSScrollView {
         let scrollView = NSScrollView()
         scrollView.hasHorizontalScroller = true
         scrollView.hasVerticalScroller = true
 
         let hostingView = NSHostingView(
-            rootView: BoardDocumentContentView(project: project, items: items, documentSize: Self.documentSize, zoomScale: $zoomScale, zoomAnchor: $zoomAnchor)
+            rootView: BoardDocumentContentView(
+                project: project,
+                items: items,
+                documentSize: Self.documentSize,
+                zoomScale: $zoomScale,
+                zoomAnchor: $zoomAnchor
+            )
         )
         hostingView.frame = CGRect(origin: .zero, size: Self.documentSize)
         scrollView.documentView = hostingView
@@ -80,7 +86,13 @@ struct BoardCanvasView: NSViewRepresentable {
             context.coordinator.previousZoomScale = zoomScale
         }
 
-        hostingView.rootView = BoardDocumentContentView(project: project, items: items, documentSize: Self.documentSize, zoomScale: $zoomScale, zoomAnchor: $zoomAnchor)
+        hostingView.rootView = BoardDocumentContentView(
+            project: project,
+            items: items,
+            documentSize: Self.documentSize,
+            zoomScale: $zoomScale,
+            zoomAnchor: $zoomAnchor
+        )
     }
 
     private func centerScrollPosition(of scrollView: NSScrollView) {

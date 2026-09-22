@@ -3,12 +3,11 @@
 //  moodyTests
 //
 
-import Testing
 import SwiftData
+import Testing
 @testable import moody
 
 struct ProjectCascadeDeleteTests {
-
     @Test func deletingProjectCascadeDeletesItsBoardItems() throws {
         let schema = Schema([Project.self, BoardItem.self])
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
@@ -18,7 +17,7 @@ struct ProjectCascadeDeleteTests {
         let project = Project(name: "Test Board")
         context.insert(project)
 
-        for index in 0..<3 {
+        for index in 0 ..< 3 {
             let item = BoardItem(
                 fileName: "\(index).jpg",
                 positionX: 0,

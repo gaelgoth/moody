@@ -12,10 +12,13 @@ import SwiftUI
 struct moodyApp: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
+            Folder.self,
             Project.self,
             BoardItem.self,
         ])
-        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+        // UI tests pass -inMemoryStore so they never touch the user's real library.
+        let inMemory = ProcessInfo.processInfo.arguments.contains("-inMemoryStore")
+        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: inMemory)
 
         do {
             return try ModelContainer(for: schema, configurations: [modelConfiguration])

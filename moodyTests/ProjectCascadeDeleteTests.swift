@@ -9,7 +9,7 @@ import Testing
 
 struct ProjectCascadeDeleteTests {
     @Test func deletingProjectCascadeDeletesItsBoardItems() throws {
-        let schema = Schema([Project.self, BoardItem.self])
+        let schema = Schema([Folder.self, Project.self, BoardItem.self])
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
         let container = try ModelContainer(for: schema, configurations: [configuration])
         let context = ModelContext(container)

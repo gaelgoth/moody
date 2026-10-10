@@ -60,6 +60,10 @@ struct BoardView: View {
         selectedItems.filter { $0.kind == .image }
     }
 
+    private var photoCount: Int {
+        items.count { $0.kind == .image }
+    }
+
     var body: some View {
         BoardCanvasView(
             project: project,
@@ -86,14 +90,19 @@ struct BoardView: View {
             )
         )
         .overlay(alignment: .bottomTrailing) {
-            Text(zoomScale, format: .percent.precision(.fractionLength(0)))
-                .font(.caption)
-                .monospacedDigit()
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(.regularMaterial, in: Capsule())
-                .padding(12)
-                .allowsHitTesting(false)
+            HStack(spacing: 4) {
+                Text("^[\(photoCount) photo](inflect: true)")
+                Text("·")
+                    .foregroundStyle(.secondary)
+                Text(zoomScale, format: .percent.precision(.fractionLength(0)))
+            }
+            .font(.caption)
+            .monospacedDigit()
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(.regularMaterial, in: Capsule())
+            .padding(12)
+            .allowsHitTesting(false)
         }
         .navigationTitle(project.name)
         .toolbar {

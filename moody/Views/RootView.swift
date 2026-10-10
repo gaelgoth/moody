@@ -8,6 +8,7 @@ import SwiftUI
 
 struct RootView: View {
     @State private var selection: SidebarSelection?
+    @State private var isShowingBorderTool = false
     @Query private var folders: [Folder]
     @Query private var projects: [Project]
 
@@ -17,6 +18,19 @@ struct RootView: View {
                 .navigationSplitViewColumnWidth(min: 200, ideal: 240)
         } detail: {
             detail
+        }
+        .focusedSceneValue(\.showsBorderTool, $isShowingBorderTool)
+        .sheet(isPresented: $isShowingBorderTool) {
+            BorderToolView(defaultBoardID: selectedBoardID)
+        }
+    }
+
+    /// The open board, offered as the Add Border tool's default destination.
+    private var selectedBoardID: UUID? {
+        if case let .board(id) = selection {
+            id
+        } else {
+            nil
         }
     }
 

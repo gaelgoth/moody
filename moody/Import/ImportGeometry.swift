@@ -5,6 +5,7 @@
 //  Pure layout math used when importing dropped images onto a board.
 //
 
+import CoreGraphics
 import Foundation
 
 /// Scales a natural pixel size down so its longest edge is at most `maxEdge`,
@@ -27,4 +28,12 @@ func cascadePosition(base: CGPoint, index: Int, step: Double = 24) -> CGPoint {
 /// of every item in `existing`.
 func nextZIndex(existing: [Int]) -> Int {
     (existing.max() ?? 0) + 1
+}
+
+/// Center for an image of `size` placed `gap` to the right of the board's
+/// existing content, top-aligned with it. Recomputing the bounds after each
+/// insert lays a batch out in a row. An empty board puts the top-left at the origin.
+func appendedImportCenter(contentBounds: CGRect?, size: CGSize, gap: Double = 40) -> CGPoint {
+    let topLeft = contentBounds.map { CGPoint(x: $0.maxX + gap, y: $0.minY) } ?? .zero
+    return CGPoint(x: topLeft.x + size.width / 2, y: topLeft.y + size.height / 2)
 }

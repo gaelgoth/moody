@@ -3,6 +3,7 @@
 //  moodyTests
 //
 
+import CoreGraphics
 import Foundation
 import Testing
 @testable import moody
@@ -54,5 +55,18 @@ struct ImportGeometryTests {
 
     @Test func nextZIndexIsOneGreaterThanTheCurrentMaximum() {
         #expect(nextZIndex(existing: [1, 5, 2]) == 6)
+    }
+
+    // MARK: - appendedImportCenter
+
+    @Test func appendedImportCenterPutsTheTopLeftAtTheOriginOnAnEmptyBoard() {
+        let center = appendedImportCenter(contentBounds: nil, size: CGSize(width: 200, height: 100))
+        #expect(center == CGPoint(x: 100, y: 50))
+    }
+
+    @Test func appendedImportCenterPlacesTheImageRightOfContentTopAligned() {
+        let bounds = CGRect(x: -50, y: 10, width: 300, height: 400)
+        let center = appendedImportCenter(contentBounds: bounds, size: CGSize(width: 200, height: 100), gap: 40)
+        #expect(center == CGPoint(x: 390, y: 60))
     }
 }

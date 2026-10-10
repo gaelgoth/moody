@@ -32,5 +32,8 @@ struct moodyApp: App {
             RootView()
         }
         .modelContainer(sharedModelContainer)
+        .commands {
+            BorderToolCommands()
+        }
     }
 }

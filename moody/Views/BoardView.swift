@@ -27,6 +27,16 @@ struct BoardView: View {
 
     var body: some View {
         BoardCanvasView(project: project, items: items, zoomScale: $zoomScale, zoomAnchor: $zoomAnchor, controller: canvasController)
+            .overlay(alignment: .bottomTrailing) {
+                Text(zoomScale, format: .percent.precision(.fractionLength(0)))
+                    .font(.caption)
+                    .monospacedDigit()
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(.regularMaterial, in: Capsule())
+                    .padding(12)
+                    .allowsHitTesting(false)
+            }
             .navigationTitle(project.name)
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {

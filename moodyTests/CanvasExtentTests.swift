@@ -197,4 +197,28 @@ struct CanvasExtentTests {
         let fit = fitToContent(CGRect(x: 0, y: 0, width: 100_000, height: 100_000), viewportSize: CGSize(width: 1000, height: 600))
         #expect(fit.zoom == BoardZoom.minScale)
     }
+
+    // MARK: - scrollWheelZoom
+
+    @Test func scrollingUpZoomsInAndDownZoomsOut() {
+        #expect(scrollWheelZoom(current: 1, deltaY: 5, hasPreciseDeltas: true) > 1)
+        #expect(scrollWheelZoom(current: 1, deltaY: -5, hasPreciseDeltas: true) < 1)
+    }
+
+    @Test func oppositeScrollDeltasRoundTrip() {
+        let zoomedIn = scrollWheelZoom(current: 1.5, deltaY: 20, hasPreciseDeltas: true)
+        let back = scrollWheelZoom(current: zoomedIn, deltaY: -20, hasPreciseDeltas: true)
+        #expect(abs(back - 1.5) < 0.0001)
+    }
+
+    @Test func wheelNotchZoomsMoreThanAPreciseDelta() {
+        let wheel = scrollWheelZoom(current: 1, deltaY: 1, hasPreciseDeltas: false)
+        let trackpad = scrollWheelZoom(current: 1, deltaY: 1, hasPreciseDeltas: true)
+        #expect(wheel > trackpad)
+    }
+
+    @Test func scrollWheelZoomClampsToLimits() {
+        #expect(scrollWheelZoom(current: 1, deltaY: 10000, hasPreciseDeltas: false) == BoardZoom.maxScale)
+        #expect(scrollWheelZoom(current: 1, deltaY: -10000, hasPreciseDeltas: false) == BoardZoom.minScale)
+    }
 }

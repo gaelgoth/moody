@@ -15,7 +15,7 @@
 
 import CoreGraphics
 
-/// Zoom limits shared by pinch-zoom and Zoom to Fit.
+/// Zoom limits shared by pinch-zoom, ⌘+scroll zoom, and Zoom to Fit.
 enum BoardZoom {
     static let minScale: CGFloat = 0.1
     static let maxScale: CGFloat = 4
@@ -96,6 +96,15 @@ func zoomedVisibleOrigin(anchor: CGPoint, visibleRect: CGRect, oldZoom: CGFloat,
 /// The visible-rect origin that centers `center` (board space) in the viewport.
 func centeredVisibleOrigin(on center: CGPoint, viewportSize: CGSize, zoom: CGFloat) -> CGPoint {
     CGPoint(x: center.x - viewportSize.width / zoom / 2, y: center.y - viewportSize.height / zoom / 2)
+}
+
+/// Zoom after one ⌘+scroll event: exponential in the delta so equal scroll
+/// distances give equal zoom ratios, clamped to BoardZoom limits. Scrolling
+/// up (positive deltaY) zooms in. Line-based mouse-wheel deltas get a larger
+/// step than pixel-precise trackpad deltas.
+func scrollWheelZoom(current: CGFloat, deltaY: CGFloat, hasPreciseDeltas: Bool) -> CGFloat {
+    let sensitivity: CGFloat = hasPreciseDeltas ? 0.01 : 0.1
+    return min(max(current * exp(deltaY * sensitivity), BoardZoom.minScale), BoardZoom.maxScale)
 }
 
 /// Zoom and visible origin that frame `contentBounds` inside the viewport with

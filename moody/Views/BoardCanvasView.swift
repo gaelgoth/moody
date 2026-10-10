@@ -9,6 +9,9 @@
 //  AppKit-level transform applied outside SwiftUI's own view tree, which
 //  SwiftUI's hit-testing has no visibility into — at any zoom other than
 //  1.0 it silently breaks onHover, DragGesture, and onDrop entirely.
+//  ⌘+scroll (wheel or trackpad) is the second zoom input: BoardScrollView
+//  diverts those events to the coordinator, which zooms around the cursor
+//  through the same applyZoom path.
 //
 //  The scrollable area is content-aware, not a fixed document: the
 //  coordinator keeps an `extent` (board space) = the photos' bounds padded by
@@ -49,11 +52,12 @@ struct BoardCanvasView: NSViewRepresentable {
     func makeNSView(context: Context) -> NSScrollView {
         let coordinator = context.coordinator
         coordinator.parent = self
-        let scrollView = NSScrollView()
+        let scrollView = BoardScrollView()
         scrollView.hasHorizontalScroller = true
         scrollView.hasVerticalScroller = true
         scrollView.documentView = NSHostingView(rootView: coordinator.makeContent())
         coordinator.attach(to: scrollView)
+        scrollView.onCommandScroll = { [weak coordinator] event in coordinator?.zoomFromScroll(event) }
         controller.zoomToFit = { [weak coordinator] in coordinator?.zoomToFit() }
         return scrollView
     }
@@ -169,6 +173,22 @@ extension BoardCanvasView {
             applyLayout(zoom: fit.zoom, visibleOrigin: fit.visibleOrigin, isRoutine: false)
         }
 
+        /// ⌘+scroll: zooms around the board point under the cursor.
+        func zoomFromScroll(_ event: NSEvent) {
+            guard let hostingView = scrollView?.documentView else { return }
+            let newZoom = scrollWheelZoom(
+                current: zoom,
+                deltaY: event.scrollingDeltaY,
+                hasPreciseDeltas: event.hasPreciseScrollingDeltas
+            )
+            guard newZoom != zoom else { return }
+            // NSHostingView is flipped, so this is already the visual (top-left origin) point.
+            let visualPoint = hostingView.convert(event.locationInWindow, from: nil)
+            let anchor = boardPoint(fromVisual: visualPoint, zoom: zoom, extentOrigin: extent.origin)
+            parent.zoomScale = newZoom
+            applyZoom(newZoom, anchor: anchor)
+        }
+
         // MARK: - Private
 
         private func centerOnContentIfPossible() {
@@ -271,6 +291,27 @@ extension BoardCanvasView {
         @objc private func viewportDidResize(_: Notification) {
             guard !isApplyingLayout else { return }
             refreshExtent(isRoutine: false)
+        }
+    }
+}
+
+/// Diverts ⌘+scroll to zooming; every other scroll pans as usual. The choice
+/// is made once per gesture (at its first event) and kept for its momentum,
+/// so pressing ⌘ mid-pan never swallows the end phase NSScrollView needs to
+/// post didEndLiveScroll.
+final class BoardScrollView: NSScrollView {
+    var onCommandScroll: ((NSEvent) -> Void)?
+    private var isZoomGesture = false
+
+    override func scrollWheel(with event: NSEvent) {
+        let isPhaseless = event.phase.isEmpty && event.momentumPhase.isEmpty
+        if isPhaseless || !event.phase.isDisjoint(with: [.mayBegin, .began]) {
+            isZoomGesture = event.modifierFlags.contains(.command)
+        }
+        if isZoomGesture {
+            onCommandScroll?(event)
+        } else {
+            super.scrollWheel(with: event)
         }
     }
 }

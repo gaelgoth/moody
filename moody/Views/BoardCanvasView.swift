@@ -53,6 +53,7 @@ struct BoardCanvasView: NSViewRepresentable {
     let controller: BoardCanvasController
     /// ⌫ / ⌦ on this board's window; returns whether the key was used.
     let onDeleteKey: () -> Bool
+    let itemMenuActions: BoardItemMenuActions
 
     func makeCoordinator() -> Coordinator {
         Coordinator(parent: self)
@@ -134,7 +135,8 @@ extension BoardCanvasView {
                 zoomAnchor: parent.$zoomAnchor,
                 selectedItemIDs: parent.$selectedItemIDs,
                 editingItemID: parent.$editingItemID,
-                selectedConnectorID: parent.$selectedConnectorID
+                selectedConnectorID: parent.$selectedConnectorID,
+                itemMenuActions: parent.itemMenuActions
             )
         }
 

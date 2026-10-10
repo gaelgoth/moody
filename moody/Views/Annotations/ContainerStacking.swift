@@ -84,3 +84,16 @@ func commitStackDrop(movingItems: [BoardItem], target: BoardItem?, dragged: Boar
     let index = stackInsertionIndex(axis: target.axis, point: probe, existingCenters: others.map(\.center))
     insertIntoStack(ordered, container: target, at: index, allZIndices: allZIndices)
 }
+
+/// Stacks `photos` into a freshly inserted `container`, which first moves so
+/// its top-left sits at the photos' top-left, ordered along its axis as they
+/// sit on the board.
+func stackIntoNewContainer(_ photos: [BoardItem], container: BoardItem, allZIndices: [Int]) {
+    guard let minX = photos.map({ $0.positionX - $0.width / 2 }).min(),
+          let minY = photos.map({ $0.positionY - $0.height / 2 }).min()
+    else { return }
+    container.positionX = minX + container.width / 2
+    container.positionY = minY + container.height / 2
+    let axisValue: (BoardItem) -> Double = { container.axis == .column ? $0.positionY : $0.positionX }
+    insertIntoStack(photos.sorted { axisValue($0) < axisValue($1) }, container: container, at: 0, allZIndices: allZIndices)
+}

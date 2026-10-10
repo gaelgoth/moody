@@ -15,6 +15,7 @@ struct NoteCardView: View {
     @Bindable var item: BoardItem
     let isEditing: Bool
     let onEndEditing: () -> Void
+    let menu: BoardItemMenu
 
     @Environment(\.modelContext) private var modelContext
     @FocusState private var isFocused: Bool
@@ -50,6 +51,8 @@ struct NoteCardView: View {
                     Text(color.displayName).tag(color)
                 }
             }
+            Divider()
+            menu
         }
     }
 

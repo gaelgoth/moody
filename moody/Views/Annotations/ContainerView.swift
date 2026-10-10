@@ -16,6 +16,7 @@ struct ContainerView: View {
     let isEditing: Bool
     let isDropTarget: Bool
     let onEndEditing: () -> Void
+    let menu: BoardItemMenu
 
     @Environment(\.modelContext) private var modelContext
     @State private var showsAppearance = false
@@ -43,6 +44,8 @@ struct ContainerView: View {
         .contextMenu {
             Button("Appearance…") { showsAppearance = true }
             Button(item.axis == .column ? "Switch to Row" : "Switch to Column", action: switchAxis)
+            Divider()
+            menu
         }
         .popover(isPresented: $showsAppearance) {
             FolderAppearancePicker(iconName: $item.iconName, colorName: $item.colorName)

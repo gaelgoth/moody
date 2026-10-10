@@ -52,3 +52,9 @@ func itemsToMove(draggedID: UUID?, selection: Set<UUID>) -> Set<UUID> {
 func expandingContainers(_ ids: Set<UUID>, children: [UUID: [UUID]]) -> Set<UUID> {
     ids.union(ids.flatMap { children[$0] ?? [] })
 }
+
+/// The selection after a plain click on `clicked`: ⌘ (`extending`) toggles
+/// its membership, otherwise it becomes the sole selection.
+func selectionAfterClick(on clicked: UUID, selection: Set<UUID>, extending: Bool) -> Set<UUID> {
+    extending ? selection.symmetricDifference([clicked]) : [clicked]
+}

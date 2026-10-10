@@ -214,4 +214,58 @@ struct ContainerStackingTests {
         #expect(b.center == firstSlot)
         #expect(b.stackOrder == 0)
     }
+
+    @Test func stackingIntoANewContainerOrdersPhotosAlongTheAxis() throws {
+        let (context, project) = try setUp()
+        let right = makePhoto(project, context, at: CGPoint(x: 500, y: 100))
+        let left = makePhoto(project, context, at: CGPoint(x: 200, y: 300))
+        let container = makeContainer(project, context, axis: .row)
+
+        stackIntoNewContainer([right, left], container: container, allZIndices: [1, 2])
+
+        #expect(left.container?.id == container.id)
+        #expect(right.container?.id == container.id)
+        #expect([left.stackOrder, right.stackOrder] == [0, 1] as [Int])
+    }
+
+    @Test func aNewContainerStartsAtThePhotosTopLeft() throws {
+        let (context, project) = try setUp()
+        // Bounds top-left: (150, 75) and (450, 275) → (150, 75).
+        let a = makePhoto(project, context, at: CGPoint(x: 200, y: 100))
+        let b = makePhoto(project, context, at: CGPoint(x: 500, y: 300))
+        let container = makeContainer(project, context)
+
+        stackIntoNewContainer([a, b], container: container, allZIndices: [1, 2])
+
+        #expect(container.positionX - container.width / 2 == 150)
+        #expect(container.positionY - container.height / 2 == 75)
+    }
+
+    @Test func photosInANewContainerAreInFrontOfIt() throws {
+        let (context, project) = try setUp()
+        let photo = makePhoto(project, context, zIndex: 2)
+        let container = BoardItem.container(axis: .column, at: .zero, zIndex: 3, project: project)
+        context.insert(container)
+
+        stackIntoNewContainer([photo], container: container, allZIndices: [2, 3])
+
+        #expect(photo.zIndex > container.zIndex)
+    }
+
+    @Test func stackingIntoANewContainerClosesTheGapInTheOldOne() throws {
+        let (context, project) = try setUp()
+        let old = makeContainer(project, context)
+        let a = makePhoto(project, context)
+        let b = makePhoto(project, context)
+        insertIntoStack([a, b], container: old, at: 0, allZIndices: [])
+        let firstSlot = a.center
+        let new = BoardItem.container(axis: .row, at: .zero, zIndex: 9, project: project)
+        context.insert(new)
+
+        stackIntoNewContainer([a], container: new, allZIndices: [9])
+
+        #expect(a.container?.id == new.id)
+        #expect(b.center == firstSlot)
+        #expect(b.stackOrder == 0)
+    }
 }

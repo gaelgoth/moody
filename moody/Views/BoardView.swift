@@ -71,7 +71,19 @@ struct BoardView: View {
             editingItemID: $editingItemID,
             selectedConnectorID: $selectedConnectorID,
             controller: canvasController,
-            onDeleteKey: handleDeleteKey
+            onDeleteKey: handleDeleteKey,
+            itemMenuActions: BoardItemMenuActions(
+                select: { ids in
+                    selectedItemIDs = ids
+                    selectedConnectorID = nil
+                },
+                connect: toggleConnection,
+                group: groupSelection,
+                removeFromContainer: removeSelectionFromContainer,
+                align: align,
+                download: { download(selectedItems) },
+                delete: { _ = handleDeleteKey() }
+            )
         )
         .overlay(alignment: .bottomTrailing) {
             Text(zoomScale, format: .percent.precision(.fractionLength(0)))
@@ -244,6 +256,27 @@ struct BoardView: View {
         selectedItemIDs = [container.id]
         selectedConnectorID = nil
         editingItemID = container.id
+    }
+
+    /// Menu click, never mid-gesture. Only photos stack; other selected items stay put.
+    private func groupSelection(_ axis: StackAxis) {
+        let photos = selectedImages
+        guard !photos.isEmpty else { return }
+        let container = BoardItem.container(
+            axis: axis,
+            at: .zero,
+            zIndex: nextZIndex(existing: items.map(\.zIndex)),
+            project: project
+        )
+        modelContext.insert(container)
+        stackIntoNewContainer(photos, container: container, allZIndices: items.map(\.zIndex) + [container.zIndex])
+        try? modelContext.save()
+        selectedItemIDs = [container.id]
+    }
+
+    private func removeSelectionFromContainer() {
+        removeFromStack(selectedItems.filter { $0.container != nil })
+        try? modelContext.save()
     }
 
     /// A toolbar click, never mid-gesture, so writing the model here is safe.

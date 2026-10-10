@@ -33,6 +33,7 @@ struct BoardItemView: View {
     let onDragChanged: (CGSize) -> Void
     let onDragEnded: (CGSize) -> Void
     let onEndEditing: () -> Void
+    let menu: BoardItemMenu
 
     @State private var image: NSImage?
 
@@ -56,10 +57,10 @@ struct BoardItemView: View {
     @ViewBuilder
     private var content: some View {
         switch item.kind {
-        case .image: imageContent
-        case .note: NoteCardView(item: item, isEditing: isEditing, onEndEditing: onEndEditing)
+        case .image: imageContent.contextMenu { menu }
+        case .note: NoteCardView(item: item, isEditing: isEditing, onEndEditing: onEndEditing, menu: menu)
         case .container:
-            ContainerView(item: item, isEditing: isEditing, isDropTarget: isDropTarget, onEndEditing: onEndEditing)
+            ContainerView(item: item, isEditing: isEditing, isDropTarget: isDropTarget, onEndEditing: onEndEditing, menu: menu)
         }
     }
 

@@ -48,6 +48,7 @@ struct BoardDocumentContentView: View {
     @Binding var editingItemID: UUID?
     /// The clicked connector line (see BoardView); cleared when items are selected.
     @Binding var selectedConnectorID: UUID?
+    let itemMenuActions: BoardItemMenuActions
 
     @Environment(\.modelContext) private var modelContext
 
@@ -142,7 +143,8 @@ struct BoardDocumentContentView: View {
                     onDragEnded: { translation in
                         handleItemDragEnded(translation: translation)
                     },
-                    onEndEditing: endEditing
+                    onEndEditing: endEditing,
+                    menu: menu(for: item)
                 )
                 .zIndex(moving.contains(item.id) ? .infinity : Double(item.zIndex))
             }
@@ -259,7 +261,8 @@ struct BoardDocumentContentView: View {
                 endEditing()
             }
             activeDragItemID = itemID
-            if !selectedItemIDs.contains(itemID) {
+            // ⌘ leaves the selection to the click (toggle) or moves just this item.
+            if !selectedItemIDs.contains(itemID), !NSEvent.modifierFlags.contains(.command) {
                 selectedItemIDs = [itemID]
             }
         }
@@ -274,11 +277,12 @@ struct BoardDocumentContentView: View {
         // clicking one member of a selection would silently re-stack and
         // re-save the whole group instead of just the clicked item.
         if translation == .zero, let clicked = activeDragItemID {
-            selectedItemIDs = [clicked]
+            let isCommandClick = NSEvent.modifierFlags.contains(.command)
+            selectedItemIDs = selectionAfterClick(on: clicked, selection: selectedItemIDs, extending: isCommandClick)
             // The item's only gesture is this zero-distance drag, so a
             // double-click is read from the event instead of a competing
             // TapGesture(count: 2) that would delay single-click selection.
-            if NSApp.currentEvent?.clickCount == 2, items.first(where: { $0.id == clicked })?.kind != .image {
+            if !isCommandClick, NSApp.currentEvent?.clickCount == 2, items.first(where: { $0.id == clicked })?.kind != .image {
                 editingItemID = clicked
             }
         }
@@ -322,6 +326,13 @@ struct BoardDocumentContentView: View {
             width: item.width,
             height: item.height
         )
+    }
+
+    /// The selection if `item` is in it, otherwise `item` alone.
+    private func menu(for item: BoardItem) -> BoardItemMenu {
+        let targets = selectedItemIDs.contains(item.id) ? items.filter { selectedItemIDs.contains($0.id) } : [item]
+        let isLinked = targets.count == 2 && connector(between: targets[0].id, and: targets[1].id, in: connectors) != nil
+        return BoardItemMenu(targets: targets, isLinked: isLinked, actions: itemMenuActions)
     }
 
     /// Context-menu click, never mid-gesture.

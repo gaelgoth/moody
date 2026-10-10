@@ -96,4 +96,19 @@ struct BoardSelectionGeometryTests {
         let result = itemsToMove(draggedID: nil, selection: [a])
         #expect(result.isEmpty)
     }
+
+    @Test func plainClickMakesTheClickedItemTheSoleSelection() {
+        let a = UUID(), b = UUID()
+        #expect(selectionAfterClick(on: b, selection: [a], extending: false) == [b])
+    }
+
+    @Test func commandClickAddsAnUnselectedItem() {
+        let a = UUID(), b = UUID()
+        #expect(selectionAfterClick(on: b, selection: [a], extending: true) == [a, b])
+    }
+
+    @Test func commandClickRemovesASelectedItem() {
+        let a = UUID(), b = UUID()
+        #expect(selectionAfterClick(on: b, selection: [a, b], extending: true) == [a])
+    }
 }

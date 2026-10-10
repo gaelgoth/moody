@@ -45,3 +45,16 @@ func itemsToMove(draggedID: UUID?, selection: Set<UUID>) -> Set<UUID> {
     }
     return [draggedID]
 }
+
+/// `ids` plus every photo stacked in a container among them (`children`
+/// maps container id → stacked photo ids), so dragging a container carries
+/// its stack.
+func expandingContainers(_ ids: Set<UUID>, children: [UUID: [UUID]]) -> Set<UUID> {
+    ids.union(ids.flatMap { children[$0] ?? [] })
+}
+
+/// The selection after a plain click on `clicked`: ⌘ (`extending`) toggles
+/// its membership, otherwise it becomes the sole selection.
+func selectionAfterClick(on clicked: UUID, selection: Set<UUID>, extending: Bool) -> Set<UUID> {
+    extending ? selection.symmetricDifference([clicked]) : [clicked]
+}

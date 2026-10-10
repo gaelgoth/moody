@@ -8,6 +8,7 @@ import SwiftUI
 
 struct RootView: View {
     @State private var selection: SidebarSelection?
+    @State private var isShowingBorderTool = false
     @Query private var folders: [Folder]
     @Query private var projects: [Project]
 
@@ -18,6 +19,19 @@ struct RootView: View {
         } detail: {
             detail
         }
+        .focusedSceneValue(\.showsBorderTool, $isShowingBorderTool)
+        .sheet(isPresented: $isShowingBorderTool) {
+            BorderToolView(defaultBoardID: selectedBoardID)
+        }
+    }
+
+    /// The open board, offered as the Add Border tool's default destination.
+    private var selectedBoardID: UUID? {
+        if case let .board(id) = selection {
+            id
+        } else {
+            nil
+        }
     }
 
     @ViewBuilder private var detail: some View {
@@ -25,6 +39,10 @@ struct RootView: View {
         case let .board(id):
             if let project = projects.first(where: { $0.id == id }) {
                 BoardView(project: project)
+                    // Fresh zoom/scroll/canvas state per board, so switching boards
+                    // re-centers on the new board's photos instead of inheriting the old
+                    // board's coordinator and scroll position.
+                    .id(project.id)
             } else {
                 noSelection
             }
@@ -70,5 +88,5 @@ private struct FolderSummaryView: View {
 
 #Preview {
     RootView()
-        .modelContainer(for: [Folder.self, Project.self, BoardItem.self], inMemory: true)
+        .modelContainer(for: [Folder.self, Project.self, BoardItem.self, BoardConnector.self], inMemory: true)
 }

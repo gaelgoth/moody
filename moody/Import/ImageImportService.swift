@@ -28,13 +28,14 @@ private extension Logger {
 
 enum ImageImportService {
     /// Default on-canvas display size cap (points, long edge).
-    private static let maxDisplayEdge: Double = 320
+    static let maxDisplayEdge: Double = 320
 
     @MainActor
     static func importDroppedItems(
         _ providers: [NSItemProvider],
         into project: Project,
         at dropLocation: CGPoint,
+        container: BoardItem? = nil,
         context: ModelContext,
         storage: FileStorageService = FileStorageService()
     ) async {
@@ -43,7 +44,7 @@ enum ImageImportService {
             guard provider.hasItemConformingToTypeIdentifier(UTType.image.identifier) else { continue }
             let position = cascadePosition(base: dropLocation, index: index)
             do {
-                try await importOne(provider, into: project, at: position, context: context, storage: storage)
+                try await importOne(provider, into: project, at: position, container: container, context: context, storage: storage)
                 index += 1
             } catch {
                 Logger.imageImport.error("Failed to import dropped item: \(error.localizedDescription, privacy: .public)")
@@ -56,6 +57,7 @@ enum ImageImportService {
         _ provider: NSItemProvider,
         into project: Project,
         at position: CGPoint,
+        container: BoardItem? = nil,
         context: ModelContext,
         storage: FileStorageService
     ) async throws {
@@ -63,26 +65,41 @@ enum ImageImportService {
 
         let finalData: Data
         let fileExtension: String
-        let pixelWidth: Int
-        let pixelHeight: Int
-
         if contentType.conforms(to: .svg) {
-            let rasterized = try await SVGRasterizer.rasterize(svgData: data)
-            finalData = rasterized.pngData
+            finalData = try await SVGRasterizer.rasterize(svgData: data).pngData
             fileExtension = "png"
-            pixelWidth = rasterized.pixelWidth
-            pixelHeight = rasterized.pixelHeight
         } else {
             finalData = data
             fileExtension = contentType.preferredFilenameExtension ?? "img"
-            let size = try decodePixelSize(from: data)
-            pixelWidth = size.width
-            pixelHeight = size.height
         }
 
+        try insertImage(
+            data: finalData,
+            fileExtension: fileExtension,
+            into: project,
+            at: position,
+            container: container,
+            context: context,
+            storage: storage
+        )
+    }
+
+    /// Writes the file to the board's storage and inserts its `BoardItem` on top,
+    /// or at the end of `container`'s stack. Shared by board drops and the Add Border tool.
+    @MainActor
+    static func insertImage(
+        data: Data,
+        fileExtension: String,
+        into project: Project,
+        at position: CGPoint,
+        container: BoardItem? = nil,
+        context: ModelContext,
+        storage: FileStorageService = FileStorageService()
+    ) throws {
+        let (pixelWidth, pixelHeight) = try decodePixelSize(from: data)
         let itemID = UUID()
         let fileName = "\(itemID.uuidString).\(fileExtension)"
-        try storage.write(data: finalData, fileName: fileName, projectID: project.id)
+        try storage.write(data: data, fileName: fileName, projectID: project.id)
 
         let displaySize = aspectFit(pixelWidth: pixelWidth, pixelHeight: pixelHeight, maxEdge: maxDisplayEdge)
         let zIndex = nextZIndex(existing: project.items.map(\.zIndex))
@@ -100,13 +117,16 @@ enum ImageImportService {
             project: project
         )
         context.insert(item)
+        if let container {
+            insertIntoStack([item], container: container, at: Int.max, allZIndices: project.items.map(\.zIndex))
+        }
         try context.save()
     }
 
     /// Reads the dropped item's bytes synchronously inside NSItemProvider's
     /// completion handler — the temp file URL it hands back is only
     /// guaranteed valid there, not after further async hops.
-    private static func loadFileRepresentation(_ provider: NSItemProvider) async throws -> (data: Data, contentType: UTType) {
+    static func loadFileRepresentation(_ provider: NSItemProvider) async throws -> (data: Data, contentType: UTType) {
         try await withCheckedThrowingContinuation { continuation in
             provider.loadFileRepresentation(forTypeIdentifier: UTType.image.identifier) { url, error in
                 if let error {
@@ -119,15 +139,20 @@ enum ImageImportService {
                 }
                 do {
                     let data = try Data(contentsOf: url)
-                    let contentType = (try? url.resourceValues(forKeys: [.contentTypeKey]).contentType)
-                        ?? UTType(filenameExtension: url.pathExtension)
-                        ?? .image
+                    let contentType = ImageImportService.contentType(of: url)
                     continuation.resume(returning: (data, contentType))
                 } catch {
                     continuation.resume(throwing: error)
                 }
             }
         }
+    }
+
+    /// The file's type from its resource values, then its extension, else generic image.
+    static func contentType(of url: URL) -> UTType {
+        (try? url.resourceValues(forKeys: [.contentTypeKey]).contentType)
+            ?? UTType(filenameExtension: url.pathExtension)
+            ?? .image
     }
 
     private static func decodePixelSize(from data: Data) throws -> (width: Int, height: Int) {

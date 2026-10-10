@@ -13,6 +13,10 @@ final class Project {
     var createdAt: Date
     /// Containing sidebar folder; nil means the board sits at top level.
     var folder: Folder?
+    /// Board look, toggled from BoardView's toolbar. Defaults keep
+    /// SwiftData's lightweight migration working for existing stores.
+    var showsGrid: Bool = false
+    var usesDarkBackground: Bool = false
 
     @Relationship(deleteRule: .cascade, inverse: \BoardItem.project)
     var items: [BoardItem] = []

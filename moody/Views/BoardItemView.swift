@@ -2,7 +2,7 @@
 //  BoardItemView.swift
 //  moody
 //
-//  One placed image on a board: renders at its stored position/size, and
+//  One placed board item (photo, note or container): renders at its stored position/size, and
 //  reports drag gestures up to BoardDocumentContentView, which owns
 //  selection state and commits the resulting move(s) to the model — see
 //  that file for why model writes must happen only once a drag ends, never
@@ -19,7 +19,12 @@ import SwiftUI
 
 struct BoardItemView: View {
     let item: BoardItem
+    /// Board-space point at the top-left of the canvas's current extent;
+    /// subtracted so board coordinates map to the parent's local layout space.
+    let canvasOrigin: CGPoint
     let isSelected: Bool
+    let isEditing: Bool
+    let isDropTarget: Bool
     /// Offset applied to this item's rendered position while it (or its
     /// selection group) is being dragged. Owned by the parent, not local
     /// state, so one gesture recognized on one item can move every selected
@@ -27,6 +32,8 @@ struct BoardItemView: View {
     let liveTranslation: CGSize
     let onDragChanged: (CGSize) -> Void
     let onDragEnded: (CGSize) -> Void
+    let onEndEditing: () -> Void
+    let menu: BoardItemMenu
 
     @State private var image: NSImage?
 
@@ -35,15 +42,30 @@ struct BoardItemView: View {
             .frame(width: item.width, height: item.height)
             .overlay(selectionOverlay)
             .contentShape(Rectangle())
-            .position(x: item.positionX + liveTranslation.width, y: item.positionY + liveTranslation.height)
-            .gesture(dragGesture)
+            .position(
+                x: item.positionX + liveTranslation.width - canvasOrigin.x,
+                y: item.positionY + liveTranslation.height - canvasOrigin.y
+            )
+            // While editing, clicks belong to the text view, not the move/select gesture.
+            .gesture(dragGesture, including: isEditing ? .subviews : .all)
             .task(id: item.fileName) {
+                guard item.kind == .image else { return }
                 image = ImageCache.shared.image(for: item)
             }
     }
 
     @ViewBuilder
     private var content: some View {
+        switch item.kind {
+        case .image: imageContent.contextMenu { menu }
+        case .note: NoteCardView(item: item, isEditing: isEditing, onEndEditing: onEndEditing, menu: menu)
+        case .container:
+            ContainerView(item: item, isEditing: isEditing, isDropTarget: isDropTarget, onEndEditing: onEndEditing, menu: menu)
+        }
+    }
+
+    @ViewBuilder
+    private var imageContent: some View {
         if let image {
             Image(nsImage: image)
                 .resizable()

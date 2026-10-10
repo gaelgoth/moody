@@ -2,16 +2,26 @@
 //  FolderAppearancePicker.swift
 //  moody
 //
-//  Popover for choosing a folder's color and SF Symbol icon from the curated
-//  sets in FolderAppearance.swift. Changes apply (and save) immediately.
+//  Popover for choosing a folder's or board container's color and SF Symbol
+//  icon from the curated sets in FolderAppearance.swift. Changes apply (and
+//  save) immediately.
 //
 
 import SwiftData
 import SwiftUI
 
 struct FolderAppearancePicker: View {
-    @Bindable var folder: Folder
+    @Binding var iconName: String
+    @Binding var colorName: String
     @Environment(\.modelContext) private var modelContext
+
+    private var selectedColor: FolderColor {
+        FolderColor(rawValue: colorName) ?? FolderColor.defaultColor
+    }
+
+    private var selectedIcon: String {
+        FolderIcon.all.contains(iconName) ? iconName : FolderIcon.defaultName
+    }
 
     private let iconColumns = Array(repeating: GridItem(.fixed(32), spacing: 6), count: 8)
 
@@ -37,9 +47,9 @@ struct FolderAppearancePicker: View {
     }
 
     private func colorSwatch(_ folderColor: FolderColor) -> some View {
-        let isSelected = folder.resolvedColor == folderColor
+        let isSelected = selectedColor == folderColor
         return Button {
-            folder.colorName = folderColor.rawValue
+            colorName = folderColor.rawValue
             try? modelContext.save()
         } label: {
             Circle()
@@ -55,10 +65,10 @@ struct FolderAppearancePicker: View {
     }
 
     private func iconButton(_ iconName: String) -> some View {
-        let isSelected = folder.resolvedIconName == iconName
-        let tint = folder.resolvedColor.color
+        let isSelected = selectedIcon == iconName
+        let tint = selectedColor.color
         return Button {
-            folder.iconName = iconName
+            self.iconName = iconName
             try? modelContext.save()
         } label: {
             Image(systemName: iconName)
@@ -79,6 +89,6 @@ struct FolderAppearancePicker: View {
 }
 
 #Preview {
-    FolderAppearancePicker(folder: Folder(name: "Inspiration", iconName: "sparkles", colorName: "purple"))
-        .modelContainer(for: [Folder.self, Project.self, BoardItem.self], inMemory: true)
+    FolderAppearancePicker(iconName: .constant("sparkles"), colorName: .constant("purple"))
+        .modelContainer(for: [Folder.self, Project.self, BoardItem.self, BoardConnector.self], inMemory: true)
 }

@@ -2,12 +2,13 @@
 //  BoardDocumentContentView.swift
 //  moody
 //
-//  The fixed-size SwiftUI content hosted as an NSScrollView's documentView.
-//  Laid out at a fixed LOGICAL size (documentSize) and visually scaled by
-//  zoomScale via .scaleEffect — a SwiftUI-native transform, so drag
+//  The SwiftUI content hosted as an NSScrollView's documentView. Laid out at
+//  extent.size, with board coordinates shifted by -extent.origin (the extent
+//  is decided by BoardCanvasView), and visually scaled by zoomScale via
+//  .scaleEffect — a SwiftUI-native transform, so drag
 //  translations, hover tracking, and onDrop locations all stay correctly
 //  aligned with what's on screen at any zoom level. (BoardCanvasView keeps
-//  the hosting NSView's frame sized to documentSize * zoomScale so
+//  the hosting NSView's frame sized to extent.size * zoomScale so
 //  NSScrollView's scroll bounds match the scaled rendering.)
 //
 //  Selection and drag state both live here, not on individual BoardItemViews:
@@ -32,9 +33,12 @@ import UniformTypeIdentifiers
 struct BoardDocumentContentView: View {
     let project: Project
     let items: [BoardItem]
-    let documentSize: CGSize
+    /// Board-space rect this view renders, decided by BoardCanvasView; its
+    /// origin maps to this view's (0, 0).
+    let extent: CGRect
     @Binding var zoomScale: CGFloat
-    @Binding var zoomAnchor: CGPoint
+    /// Board-space point under the cursor (see BoardView).
+    @Binding var zoomAnchor: CGPoint?
 
     @Environment(\.modelContext) private var modelContext
 
@@ -52,8 +56,8 @@ struct BoardDocumentContentView: View {
     /// persisted — resets whenever the board is reopened.
     @State private var selectedItemIDs: Set<UUID> = []
 
-    /// The in-progress marquee (rubber-band) selection rectangle, in logical/
-    /// document coordinates. nil when no marquee drag is in progress.
+    /// The in-progress marquee (rubber-band) selection rectangle, in board
+    /// coordinates. nil when no marquee drag is in progress.
     @State private var marqueeRect: CGRect?
 
     /// Which item (if any) the cursor is currently over. Computed from a
@@ -76,9 +80,6 @@ struct BoardDocumentContentView: View {
     /// and the scroll frame disagreed on scale for the entire pinch.
     @State private var gestureBaseScale: CGFloat?
 
-    private static let minZoom: CGFloat = 0.1
-    private static let maxZoom: CGFloat = 4
-
     /// Ids of items the live drag should move: the whole selection if the
     /// dragged item is a member of a multi-item selection, otherwise just
     /// the dragged item alone.
@@ -95,6 +96,7 @@ struct BoardDocumentContentView: View {
             ForEach(items.sorted(by: { $0.zIndex < $1.zIndex })) { item in
                 BoardItemView(
                     item: item,
+                    canvasOrigin: extent.origin,
                     isSelected: selectedItemIDs.contains(item.id),
                     liveTranslation: movingItemIDs.contains(item.id) ? dragTranslation : .zero,
                     onDragChanged: { translation in
@@ -112,18 +114,18 @@ struct BoardDocumentContentView: View {
                     .zIndex(.greatestFiniteMagnitude)
             }
         }
-        .frame(width: documentSize.width, height: documentSize.height)
+        .frame(width: extent.width, height: extent.height)
         .scaleEffect(zoomScale, anchor: .topLeading)
         // .scaleEffect renders bigger but does NOT change the reported
-        // layout size (it stays documentSize) — without this outer frame,
-        // SwiftUI would position the nominally-20000x20000 content inside
+        // layout size (it stays extent.size) — without this outer frame,
+        // SwiftUI would position the unscaled-size content inside
         // whatever larger size BoardCanvasView gives the hosting NSView,
         // instead of filling it from the top-left, so on-screen items would
         // land somewhere other than where onDrop/onContinuousHover (and the
         // NSScrollView's own scroll bounds) expect them to be.
         .frame(
-            width: documentSize.width * zoomScale,
-            height: documentSize.height * zoomScale,
+            width: extent.width * zoomScale,
+            height: extent.height * zoomScale,
             alignment: .topLeading
         )
         .contentShape(Rectangle())
@@ -131,8 +133,9 @@ struct BoardDocumentContentView: View {
         .onContinuousHover { phase in
             switch phase {
             case let .active(point):
-                zoomAnchor = point
-                hoveredItemID = topmostItem(at: logicalPoint(from: point))?.id
+                let boardPoint = logicalPoint(from: point)
+                zoomAnchor = boardPoint
+                hoveredItemID = topmostItem(at: boardPoint)?.id
             case .ended:
                 hoveredItemID = nil
             }
@@ -154,7 +157,7 @@ struct BoardDocumentContentView: View {
                 if gestureBaseScale == nil {
                     gestureBaseScale = base
                 }
-                zoomScale = min(max(base * value, Self.minZoom), Self.maxZoom)
+                zoomScale = min(max(base * value, BoardZoom.minScale), BoardZoom.maxScale)
             }
             .onEnded { _ in
                 gestureBaseScale = nil
@@ -164,18 +167,21 @@ struct BoardDocumentContentView: View {
     /// Attached to a child INSIDE the ZStack's .scaleEffect (unlike
     /// magnification/hover/drop above, which are attached to the outer,
     /// post-scale container) — so value.location/.startLocation already
-    /// arrive in logical/document coordinates. Do NOT run these through
+    /// arrive in this ZStack's unscaled local space, which is board space
+    /// minus extent.origin: add the origin back, but do NOT run these through
     /// logicalPoint(from:), which is calibrated for the outer view space;
     /// reusing it here would silently double-convert, only visibly wrong at
     /// zoom levels other than 1.0.
     private var marqueeGesture: some Gesture {
         DragGesture(minimumDistance: 0, coordinateSpace: .local)
             .onChanged { value in
+                let start = CGPoint(x: value.startLocation.x + extent.minX, y: value.startLocation.y + extent.minY)
+                let end = CGPoint(x: value.location.x + extent.minX, y: value.location.y + extent.minY)
                 let rect = CGRect(
-                    x: min(value.startLocation.x, value.location.x),
-                    y: min(value.startLocation.y, value.location.y),
-                    width: abs(value.location.x - value.startLocation.x),
-                    height: abs(value.location.y - value.startLocation.y)
+                    x: min(start.x, end.x),
+                    y: min(start.y, end.y),
+                    width: abs(end.x - start.x),
+                    height: abs(end.y - start.y)
                 )
                 marqueeRect = rect
                 selectedItemIDs = itemsIntersecting(rect, items: items.map {
@@ -195,7 +201,7 @@ struct BoardDocumentContentView: View {
             .fill(Color.accentColor.opacity(0.12))
             .overlay(Rectangle().stroke(Color.accentColor, lineWidth: 1))
             .frame(width: rect.width, height: rect.height)
-            .position(x: rect.midX, y: rect.midY)
+            .position(x: rect.midX - extent.minX, y: rect.midY - extent.minY)
             .allowsHitTesting(false)
     }
 
@@ -227,11 +233,11 @@ struct BoardDocumentContentView: View {
     }
 
     /// onContinuousHover/onDrop report points in this view's own (post
-    /// .scaleEffect + outer .frame) layout space, which now spans
-    /// documentSize * zoomScale — divide back down to the logical/
-    /// document units that item.positionX/Y are stored in.
+    /// .scaleEffect + outer .frame) layout space, which spans
+    /// extent.size * zoomScale — divide back down by the zoom and add the
+    /// extent origin to get the board units item.positionX/Y are stored in.
     private func logicalPoint(from visualPoint: CGPoint) -> CGPoint {
-        CGPoint(x: visualPoint.x / zoomScale, y: visualPoint.y / zoomScale)
+        boardPoint(fromVisual: visualPoint, zoom: zoomScale, extentOrigin: extent.origin)
     }
 
     private func topmostItem(at point: CGPoint) -> BoardItem? {

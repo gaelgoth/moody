@@ -25,6 +25,10 @@ struct RootView: View {
         case let .board(id):
             if let project = projects.first(where: { $0.id == id }) {
                 BoardView(project: project)
+                    // Fresh zoom/scroll/canvas state per board, so switching boards
+                    // re-centers on the new board's photos instead of inheriting the old
+                    // board's coordinator and scroll position.
+                    .id(project.id)
             } else {
                 noSelection
             }

@@ -19,6 +19,9 @@ import SwiftUI
 
 struct BoardItemView: View {
     let item: BoardItem
+    /// Board-space point at the top-left of the canvas's current extent;
+    /// subtracted so board coordinates map to the parent's local layout space.
+    let canvasOrigin: CGPoint
     let isSelected: Bool
     /// Offset applied to this item's rendered position while it (or its
     /// selection group) is being dragged. Owned by the parent, not local
@@ -35,7 +38,10 @@ struct BoardItemView: View {
             .frame(width: item.width, height: item.height)
             .overlay(selectionOverlay)
             .contentShape(Rectangle())
-            .position(x: item.positionX + liveTranslation.width, y: item.positionY + liveTranslation.height)
+            .position(
+                x: item.positionX + liveTranslation.width - canvasOrigin.x,
+                y: item.positionY + liveTranslation.height - canvasOrigin.y
+            )
             .gesture(dragGesture)
             .task(id: item.fileName) {
                 image = ImageCache.shared.image(for: item)

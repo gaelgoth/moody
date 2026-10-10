@@ -30,4 +30,8 @@ final class ImageCache {
         cache.setObject(image, forKey: key)
         return image
     }
+
+    func evict(fileName: String) {
+        cache.removeObject(forKey: fileName as NSString)
+    }
 }

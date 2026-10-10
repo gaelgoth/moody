@@ -260,7 +260,7 @@ struct SidebarView: View {
 
 #Preview {
     let container = try! ModelContainer( // swiftlint:disable:this force_try
-        for: Folder.self, Project.self, BoardItem.self,
+        for: Folder.self, Project.self, BoardItem.self, BoardConnector.self,
         configurations: ModelConfiguration(isStoredInMemoryOnly: true)
     )
     let inspiration = Folder(name: "Inspiration", iconName: "sparkles", colorName: "purple")

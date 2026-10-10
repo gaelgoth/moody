@@ -15,6 +15,7 @@ struct moodyApp: App {
             Folder.self,
             Project.self,
             BoardItem.self,
+            BoardConnector.self,
         ])
         // UI tests pass -inMemoryStore so they never touch the user's real library.
         let inMemory = ProcessInfo.processInfo.arguments.contains("-inMemoryStore")

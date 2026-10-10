@@ -2,7 +2,7 @@
 //  BoardItemView.swift
 //  moody
 //
-//  One placed image on a board: renders at its stored position/size, and
+//  One placed board item (photo, note or container): renders at its stored position/size, and
 //  reports drag gestures up to BoardDocumentContentView, which owns
 //  selection state and commits the resulting move(s) to the model — see
 //  that file for why model writes must happen only once a drag ends, never
@@ -23,6 +23,8 @@ struct BoardItemView: View {
     /// subtracted so board coordinates map to the parent's local layout space.
     let canvasOrigin: CGPoint
     let isSelected: Bool
+    let isEditing: Bool
+    let isDropTarget: Bool
     /// Offset applied to this item's rendered position while it (or its
     /// selection group) is being dragged. Owned by the parent, not local
     /// state, so one gesture recognized on one item can move every selected
@@ -30,6 +32,7 @@ struct BoardItemView: View {
     let liveTranslation: CGSize
     let onDragChanged: (CGSize) -> Void
     let onDragEnded: (CGSize) -> Void
+    let onEndEditing: () -> Void
 
     @State private var image: NSImage?
 
@@ -42,14 +45,26 @@ struct BoardItemView: View {
                 x: item.positionX + liveTranslation.width - canvasOrigin.x,
                 y: item.positionY + liveTranslation.height - canvasOrigin.y
             )
-            .gesture(dragGesture)
+            // While editing, clicks belong to the text view, not the move/select gesture.
+            .gesture(dragGesture, including: isEditing ? .subviews : .all)
             .task(id: item.fileName) {
+                guard item.kind == .image else { return }
                 image = ImageCache.shared.image(for: item)
             }
     }
 
     @ViewBuilder
     private var content: some View {
+        switch item.kind {
+        case .image: imageContent
+        case .note: NoteCardView(item: item, isEditing: isEditing, onEndEditing: onEndEditing)
+        case .container:
+            ContainerView(item: item, isEditing: isEditing, isDropTarget: isDropTarget, onEndEditing: onEndEditing)
+        }
+    }
+
+    @ViewBuilder
+    private var imageContent: some View {
         if let image {
             Image(nsImage: image)
                 .resizable()

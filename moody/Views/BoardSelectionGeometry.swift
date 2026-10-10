@@ -45,3 +45,10 @@ func itemsToMove(draggedID: UUID?, selection: Set<UUID>) -> Set<UUID> {
     }
     return [draggedID]
 }
+
+/// `ids` plus every photo stacked in a container among them (`children`
+/// maps container id → stacked photo ids), so dragging a container carries
+/// its stack.
+func expandingContainers(_ ids: Set<UUID>, children: [UUID: [UUID]]) -> Set<UUID> {
+    ids.union(ids.flatMap { children[$0] ?? [] })
+}

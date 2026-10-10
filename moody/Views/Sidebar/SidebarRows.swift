@@ -65,7 +65,7 @@ struct SidebarFolderRow: View {
         } isTargeted: { isDropTargeted = $0 }
         .listRowBackground(dropHighlight)
         .popover(isPresented: appearanceBinding, arrowEdge: .trailing) {
-            FolderAppearancePicker(folder: folder)
+            FolderAppearancePicker(iconName: Bindable(folder).iconName, colorName: Bindable(folder).colorName)
         }
     }
 

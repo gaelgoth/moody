@@ -35,17 +35,24 @@ import SwiftUI
 /// BoardCanvasView's coordinator owns.
 final class BoardCanvasController {
     var zoomToFit: () -> Void = {}
+    /// Board-space center of what's on screen, where new notes and containers land.
+    var visibleCenter: () -> CGPoint = { .zero }
 }
 
 struct BoardCanvasView: NSViewRepresentable {
     let project: Project
     let items: [BoardItem]
+    let connectors: [BoardConnector]
     @Binding var zoomScale: CGFloat
     /// Board-space point to keep under the cursor while zooming; nil = viewport center.
     @Binding var zoomAnchor: CGPoint?
     /// Owned by BoardView so its toolbar can act on the selection.
     @Binding var selectedItemIDs: Set<UUID>
+    @Binding var editingItemID: UUID?
+    @Binding var selectedConnectorID: UUID?
     let controller: BoardCanvasController
+    /// ⌫ / ⌦ on this board's window; returns whether the key was used.
+    let onDeleteKey: () -> Bool
 
     func makeCoordinator() -> Coordinator {
         Coordinator(parent: self)
@@ -60,9 +67,15 @@ struct BoardCanvasView: NSViewRepresentable {
         scrollView.backgroundColor = project.usesDarkBackground ? .black : .white
         scrollView.documentView = NSHostingView(rootView: coordinator.makeContent())
         coordinator.attach(to: scrollView)
+        coordinator.installDeleteKeyMonitor()
         scrollView.onCommandScroll = { [weak coordinator] event in coordinator?.zoomFromScroll(event) }
         controller.zoomToFit = { [weak coordinator] in coordinator?.zoomToFit() }
+        controller.visibleCenter = { [weak coordinator] in coordinator?.visibleCenter() ?? .zero }
         return scrollView
+    }
+
+    static func dismantleNSView(_: NSScrollView, coordinator: Coordinator) {
+        coordinator.removeDeleteKeyMonitor()
     }
 
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
@@ -90,6 +103,7 @@ extension BoardCanvasView {
         private var isApplyingLayout = false
         private var needsInitialCentering = true
         private var pendingRefresh: Task<Void, Never>?
+        private var keyMonitor: Any?
 
         init(parent: BoardCanvasView) {
             self.parent = parent
@@ -114,10 +128,13 @@ extension BoardCanvasView {
             BoardDocumentContentView(
                 project: parent.project,
                 items: parent.items,
+                connectors: parent.connectors,
                 extent: extent,
                 zoomScale: parent.$zoomScale,
                 zoomAnchor: parent.$zoomAnchor,
-                selectedItemIDs: parent.$selectedItemIDs
+                selectedItemIDs: parent.$selectedItemIDs,
+                editingItemID: parent.$editingItemID,
+                selectedConnectorID: parent.$selectedConnectorID
             )
         }
 
@@ -179,6 +196,11 @@ extension BoardCanvasView {
             applyLayout(zoom: fit.zoom, visibleOrigin: fit.visibleOrigin, isRoutine: false)
         }
 
+        func visibleCenter() -> CGPoint {
+            let visible = currentVisibleRect()
+            return CGPoint(x: visible.midX, y: visible.midY)
+        }
+
         /// ⌘+scroll: zooms around the board point under the cursor.
         func zoomFromScroll(_ event: NSEvent) {
             guard let hostingView = scrollView?.documentView else { return }
@@ -193,6 +215,33 @@ extension BoardCanvasView {
             let anchor = boardPoint(fromVisual: visualPoint, zoom: zoom, extentOrigin: extent.origin)
             parent.zoomScale = newZoom
             applyZoom(newZoom, anchor: anchor)
+        }
+
+        // MARK: - Delete key
+
+        /// A local monitor rather than .onDeleteCommand: the board's hosting
+        /// view sits inside an NSScrollView and is rarely first responder, so a
+        /// responder-chain command never reaches it. Text editing keeps the key:
+        /// any NSText first responder (field editors, TextEditor's text view)
+        /// wins, so typing in a note, a container title or the sidebar is safe.
+        func installDeleteKeyMonitor() {
+            keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+                guard let self,
+                      [51, 117].contains(event.keyCode), // delete, forward delete
+                      event.modifierFlags.isDisjoint(with: [.command, .option, .control, .shift]),
+                      let window = event.window, window === scrollView?.window,
+                      !(window.firstResponder is NSText),
+                      parent.onDeleteKey()
+                else { return event }
+                return nil
+            }
+        }
+
+        func removeDeleteKeyMonitor() {
+            if let keyMonitor {
+                NSEvent.removeMonitor(keyMonitor)
+            }
+            keyMonitor = nil
         }
 
         // MARK: - Private

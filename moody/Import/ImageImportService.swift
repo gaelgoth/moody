@@ -35,6 +35,7 @@ enum ImageImportService {
         _ providers: [NSItemProvider],
         into project: Project,
         at dropLocation: CGPoint,
+        container: BoardItem? = nil,
         context: ModelContext,
         storage: FileStorageService = FileStorageService()
     ) async {
@@ -43,7 +44,7 @@ enum ImageImportService {
             guard provider.hasItemConformingToTypeIdentifier(UTType.image.identifier) else { continue }
             let position = cascadePosition(base: dropLocation, index: index)
             do {
-                try await importOne(provider, into: project, at: position, context: context, storage: storage)
+                try await importOne(provider, into: project, at: position, container: container, context: context, storage: storage)
                 index += 1
             } catch {
                 Logger.imageImport.error("Failed to import dropped item: \(error.localizedDescription, privacy: .public)")
@@ -56,6 +57,7 @@ enum ImageImportService {
         _ provider: NSItemProvider,
         into project: Project,
         at position: CGPoint,
+        container: BoardItem? = nil,
         context: ModelContext,
         storage: FileStorageService
     ) async throws {
@@ -71,17 +73,26 @@ enum ImageImportService {
             fileExtension = contentType.preferredFilenameExtension ?? "img"
         }
 
-        try insertImage(data: finalData, fileExtension: fileExtension, into: project, at: position, context: context, storage: storage)
+        try insertImage(
+            data: finalData,
+            fileExtension: fileExtension,
+            into: project,
+            at: position,
+            container: container,
+            context: context,
+            storage: storage
+        )
     }
 
-    /// Writes the file to the board's storage and inserts its `BoardItem` on top.
-    /// Shared by board drops and the Add Border tool.
+    /// Writes the file to the board's storage and inserts its `BoardItem` on top,
+    /// or at the end of `container`'s stack. Shared by board drops and the Add Border tool.
     @MainActor
     static func insertImage(
         data: Data,
         fileExtension: String,
         into project: Project,
         at position: CGPoint,
+        container: BoardItem? = nil,
         context: ModelContext,
         storage: FileStorageService = FileStorageService()
     ) throws {
@@ -106,6 +117,9 @@ enum ImageImportService {
             project: project
         )
         context.insert(item)
+        if let container {
+            insertIntoStack([item], container: container, at: Int.max, allZIndices: project.items.map(\.zIndex))
+        }
         try context.save()
     }
 

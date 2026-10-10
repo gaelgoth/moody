@@ -88,5 +88,5 @@ private struct FolderSummaryView: View {
 
 #Preview {
     RootView()
-        .modelContainer(for: [Folder.self, Project.self, BoardItem.self], inMemory: true)
+        .modelContainer(for: [Folder.self, Project.self, BoardItem.self, BoardConnector.self], inMemory: true)
 }

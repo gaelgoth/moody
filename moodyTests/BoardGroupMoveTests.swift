@@ -11,7 +11,7 @@ import Testing
 
 struct BoardGroupMoveTests {
     private func makeContext() throws -> ModelContext {
-        let schema = Schema([Project.self, BoardItem.self])
+        let schema = Schema([Project.self, BoardItem.self, BoardConnector.self])
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
         let container = try ModelContainer(for: schema, configurations: [configuration])
         return ModelContext(container)

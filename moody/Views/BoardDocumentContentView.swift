@@ -34,6 +34,7 @@ import UniformTypeIdentifiers
 struct BoardDocumentContentView: View {
     let project: Project
     let items: [BoardItem]
+    let connectors: [BoardConnector]
     /// Board-space rect this view renders, decided by BoardCanvasView; its
     /// origin maps to this view's (0, 0).
     let extent: CGRect
@@ -43,6 +44,10 @@ struct BoardDocumentContentView: View {
     /// Ids of the currently selected items. Owned by BoardView (its toolbar
     /// acts on the selection); ephemeral, never persisted.
     @Binding var selectedItemIDs: Set<UUID>
+    /// See BoardView. Typing writes the model live; endEditing() saves.
+    @Binding var editingItemID: UUID?
+    /// The clicked connector line (see BoardView); cleared when items are selected.
+    @Binding var selectedConnectorID: UUID?
 
     @Environment(\.modelContext) private var modelContext
 
@@ -59,6 +64,10 @@ struct BoardDocumentContentView: View {
     /// The in-progress marquee (rubber-band) selection rectangle, in board
     /// coordinates. nil when no marquee drag is in progress.
     @State private var marqueeRect: CGRect?
+
+    /// The container a release right now would stack the dragged photos into
+    /// (highlighted). Live drag state like dragTranslation: never persisted.
+    @State private var dropTargetContainerID: UUID?
 
     /// Which item (if any) the cursor is currently over. Computed from a
     /// single continuous hover stream on this container rather than N
@@ -81,32 +90,61 @@ struct BoardDocumentContentView: View {
     @State private var gestureBaseScale: CGFloat?
 
     /// Ids of items the live drag should move: the whole selection if the
-    /// dragged item is a member of a multi-item selection, otherwise just
-    /// the dragged item alone.
+    /// dragged item is a member of a multi-item selection, otherwise just the
+    /// dragged item, plus the stacked photos of any container among them.
     private var movingItemIDs: Set<UUID> {
-        itemsToMove(draggedID: activeDragItemID, selection: selectedItemIDs)
+        expandingContainers(itemsToMove(draggedID: activeDragItemID, selection: selectedItemIDs), children: stackChildren)
+    }
+
+    /// Container id → ids of the photos stacked in it.
+    private var stackChildren: [UUID: [UUID]] {
+        items.reduce(into: [:]) { map, item in
+            if let containerID = item.container?.id {
+                map[containerID, default: []].append(item.id)
+            }
+        }
     }
 
     var body: some View {
         ZStack(alignment: .topLeading) {
+            let moving = movingItemIDs
             BoardBackgroundView(extent: extent, showsGrid: project.showsGrid, isDark: project.usesDarkBackground)
                 .contentShape(Rectangle())
                 .gesture(marqueeGesture)
+
+            ConnectorLayerView(
+                connectors: connectors,
+                extentOrigin: extent.origin,
+                isDarkBoard: project.usesDarkBackground,
+                selectedConnectorID: selectedConnectorID,
+                liveRect: { liveRect(of: $0, moving: moving) },
+                onSelect: { id in
+                    endEditing()
+                    selectedItemIDs = []
+                    selectedConnectorID = id
+                },
+                onUnlink: unlink
+            )
+            // Above the background (0), below every item (zIndex ≥ 1 via nextZIndex).
+            .zIndex(0.5)
 
             ForEach(items.sorted(by: { $0.zIndex < $1.zIndex })) { item in
                 BoardItemView(
                     item: item,
                     canvasOrigin: extent.origin,
                     isSelected: selectedItemIDs.contains(item.id),
-                    liveTranslation: movingItemIDs.contains(item.id) ? dragTranslation : .zero,
+                    isEditing: editingItemID == item.id,
+                    isDropTarget: dropTargetContainerID == item.id,
+                    liveTranslation: moving.contains(item.id) ? dragTranslation : .zero,
                     onDragChanged: { translation in
                         handleItemDragChanged(itemID: item.id, translation: translation)
                     },
                     onDragEnded: { translation in
                         handleItemDragEnded(translation: translation)
-                    }
+                    },
+                    onEndEditing: endEditing
                 )
-                .zIndex(movingItemIDs.contains(item.id) ? .infinity : Double(item.zIndex))
+                .zIndex(moving.contains(item.id) ? .infinity : Double(item.zIndex))
             }
 
             if let marqueeRect {
@@ -114,6 +152,8 @@ struct BoardDocumentContentView: View {
                     .zIndex(.greatestFiniteMagnitude)
             }
         }
+        // Container headers and hints follow the board's background, not the system appearance.
+        .environment(\.colorScheme, project.usesDarkBackground ? .dark : .light)
         .frame(width: extent.width, height: extent.height)
         .scaleEffect(zoomScale, anchor: .topLeading)
         // .scaleEffect renders bigger but does NOT change the reported
@@ -143,8 +183,13 @@ struct BoardDocumentContentView: View {
         }
         .onDrop(of: [UTType.image], isTargeted: nil) { providers, location in
             let dropPoint = logicalPoint(from: location)
+            let containers = items.filter { $0.kind == .container }
+            let targetID = topmostContaining(dropPoint, items: containers.map { (id: $0.id, center: $0.center, size: $0.size) })
+            let target = containers.first { $0.id == targetID }
             Task {
-                await ImageImportService.importDroppedItems(providers, into: project, at: dropPoint, context: modelContext)
+                await ImageImportService.importDroppedItems(
+                    providers, into: project, at: dropPoint, container: target, context: modelContext
+                )
             }
             return true
         }
@@ -175,6 +220,8 @@ struct BoardDocumentContentView: View {
     private var marqueeGesture: some Gesture {
         DragGesture(minimumDistance: 0, coordinateSpace: .local)
             .onChanged { value in
+                endEditing()
+                selectedConnectorID = nil
                 let start = CGPoint(x: value.startLocation.x + extent.minX, y: value.startLocation.y + extent.minY)
                 let end = CGPoint(x: value.location.x + extent.minX, y: value.location.y + extent.minY)
                 let rect = CGRect(
@@ -207,12 +254,17 @@ struct BoardDocumentContentView: View {
 
     private func handleItemDragChanged(itemID: UUID, translation: CGSize) {
         if activeDragItemID == nil {
+            selectedConnectorID = nil
+            if editingItemID != itemID {
+                endEditing()
+            }
             activeDragItemID = itemID
             if !selectedItemIDs.contains(itemID) {
                 selectedItemIDs = [itemID]
             }
         }
         dragTranslation = translation
+        dropTargetContainerID = stackDropTarget(translation: translation)
         updateCursor()
     }
 
@@ -223,13 +275,69 @@ struct BoardDocumentContentView: View {
         // re-save the whole group instead of just the clicked item.
         if translation == .zero, let clicked = activeDragItemID {
             selectedItemIDs = [clicked]
+            // The item's only gesture is this zero-distance drag, so a
+            // double-click is read from the event instead of a competing
+            // TapGesture(count: 2) that would delay single-click selection.
+            if NSApp.currentEvent?.clickCount == 2, items.first(where: { $0.id == clicked })?.kind != .image {
+                editingItemID = clicked
+            }
         }
         let movingItems = items.filter { movingItemIDs.contains($0.id) }
-        commitGroupMove(movingItems: movingItems, allZIndices: items.map(\.zIndex), translation: translation)
+        let target = dropTargetContainerID.flatMap { id in items.first { $0.id == id } }
+        let dragged = items.first { $0.id == activeDragItemID }
+        let allZIndices = items.map(\.zIndex)
+        commitGroupMove(movingItems: movingItems, allZIndices: allZIndices, translation: translation)
+        // A click (no movement) never changes stack membership or order.
+        if translation != .zero {
+            commitStackDrop(movingItems: movingItems, target: target, dragged: dragged, allZIndices: allZIndices)
+        }
         try? modelContext.save()
         activeDragItemID = nil
         dragTranslation = .zero
+        dropTargetContainerID = nil
         updateCursor()
+    }
+
+    /// The front-most container under the dragged item's live center that a
+    /// release would stack into. Only photos stack, and a drag that carries a
+    /// container never targets one.
+    private func stackDropTarget(translation: CGSize) -> UUID? {
+        let moving = movingItemIDs
+        let movingItems = items.filter { moving.contains($0.id) }
+        guard movingItems.contains(where: { $0.kind == .image }),
+              !movingItems.contains(where: { $0.kind == .container }),
+              let dragged = items.first(where: { $0.id == activeDragItemID })
+        else { return nil }
+        let probe = CGPoint(x: dragged.positionX + translation.width, y: dragged.positionY + translation.height)
+        // items comes from the @Query sorted by zIndex, i.e. back to front.
+        let containers = items.filter { $0.kind == .container && !moving.contains($0.id) }
+        return topmostContaining(probe, items: containers.map { (id: $0.id, center: $0.center, size: $0.size) })
+    }
+
+    private func liveRect(of item: BoardItem, moving: Set<UUID>) -> CGRect {
+        let offset = moving.contains(item.id) ? dragTranslation : .zero
+        return CGRect(
+            x: item.positionX - item.width / 2 + offset.width,
+            y: item.positionY - item.height / 2 + offset.height,
+            width: item.width,
+            height: item.height
+        )
+    }
+
+    /// Context-menu click, never mid-gesture.
+    private func unlink(_ connector: BoardConnector) {
+        if selectedConnectorID == connector.id {
+            selectedConnectorID = nil
+        }
+        modelContext.delete(connector)
+        try? modelContext.save()
+    }
+
+    /// Single exit for text editing (Esc, focus loss, clicking elsewhere).
+    private func endEditing() {
+        guard editingItemID != nil else { return }
+        editingItemID = nil
+        try? modelContext.save()
     }
 
     /// onContinuousHover/onDrop report points in this view's own (post

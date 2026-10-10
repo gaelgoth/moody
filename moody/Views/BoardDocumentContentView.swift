@@ -11,7 +11,8 @@
 //  the hosting NSView's frame sized to extent.size * zoomScale so
 //  NSScrollView's scroll bounds match the scaled rendering.)
 //
-//  Selection and drag state both live here, not on individual BoardItemViews:
+//  Drag state lives here, and selection is edited here (BoardView owns it so
+//  its toolbar can act on it), not on individual BoardItemViews:
 //  a single drag gesture (recognized on whichever item is under the cursor)
 //  needs to be able to move every OTHER selected item's rendered position
 //  too, and the marquee-select rectangle needs to test against every item's
@@ -39,6 +40,9 @@ struct BoardDocumentContentView: View {
     @Binding var zoomScale: CGFloat
     /// Board-space point under the cursor (see BoardView).
     @Binding var zoomAnchor: CGPoint?
+    /// Ids of the currently selected items. Owned by BoardView (its toolbar
+    /// acts on the selection); ephemeral, never persisted.
+    @Binding var selectedItemIDs: Set<UUID>
 
     @Environment(\.modelContext) private var modelContext
 
@@ -51,10 +55,6 @@ struct BoardDocumentContentView: View {
     /// Live translation shared by every item in `movingItemIDs` — a group
     /// moves rigidly together, so one shared value is enough (no per-item map).
     @State private var dragTranslation: CGSize = .zero
-
-    /// Ids of the currently multi-selected items. Ephemeral UI state, never
-    /// persisted — resets whenever the board is reopened.
-    @State private var selectedItemIDs: Set<UUID> = []
 
     /// The in-progress marquee (rubber-band) selection rectangle, in board
     /// coordinates. nil when no marquee drag is in progress.
@@ -89,7 +89,7 @@ struct BoardDocumentContentView: View {
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            Color.clear
+            BoardBackgroundView(extent: extent, showsGrid: project.showsGrid, isDark: project.usesDarkBackground)
                 .contentShape(Rectangle())
                 .gesture(marqueeGesture)
 

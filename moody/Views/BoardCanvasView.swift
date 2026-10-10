@@ -43,6 +43,8 @@ struct BoardCanvasView: NSViewRepresentable {
     @Binding var zoomScale: CGFloat
     /// Board-space point to keep under the cursor while zooming; nil = viewport center.
     @Binding var zoomAnchor: CGPoint?
+    /// Owned by BoardView so its toolbar can act on the selection.
+    @Binding var selectedItemIDs: Set<UUID>
     let controller: BoardCanvasController
 
     func makeCoordinator() -> Coordinator {
@@ -55,6 +57,7 @@ struct BoardCanvasView: NSViewRepresentable {
         let scrollView = BoardScrollView()
         scrollView.hasHorizontalScroller = true
         scrollView.hasVerticalScroller = true
+        scrollView.backgroundColor = project.usesDarkBackground ? .black : .white
         scrollView.documentView = NSHostingView(rootView: coordinator.makeContent())
         coordinator.attach(to: scrollView)
         scrollView.onCommandScroll = { [weak coordinator] event in coordinator?.zoomFromScroll(event) }
@@ -62,9 +65,11 @@ struct BoardCanvasView: NSViewRepresentable {
         return scrollView
     }
 
-    func updateNSView(_: NSScrollView, context: Context) {
+    func updateNSView(_ scrollView: NSScrollView, context: Context) {
         let coordinator = context.coordinator
         coordinator.parent = self
+        // Elastic overscroll shows the scroll view itself, past the hosting view.
+        scrollView.backgroundColor = project.usesDarkBackground ? .black : .white
         if zoomScale != coordinator.zoom {
             coordinator.applyZoom(zoomScale, anchor: zoomAnchor)
         } else {
@@ -111,7 +116,8 @@ extension BoardCanvasView {
                 items: parent.items,
                 extent: extent,
                 zoomScale: parent.$zoomScale,
-                zoomAnchor: parent.$zoomAnchor
+                zoomAnchor: parent.$zoomAnchor,
+                selectedItemIDs: parent.$selectedItemIDs
             )
         }
 

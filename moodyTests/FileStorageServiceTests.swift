@@ -56,4 +56,56 @@ struct FileStorageServiceTests {
 
         #expect(!FileManager.default.fileExists(atPath: storage.imagesDirectory(projectID: projectID).path))
     }
+
+    @Test func exportingCopiesOnlyTheRequestedFiles() throws {
+        let storage = try FileStorageService(rootDirectory: makeTempRoot())
+        let destination = try makeTempRoot()
+        let projectID = UUID()
+        try storage.write(data: Data("one".utf8), fileName: "one.png", projectID: projectID)
+        try storage.write(data: Data("two".utf8), fileName: "two.png", projectID: projectID)
+
+        let failed = storage.exportFiles(fileNames: ["one.png"], projectID: projectID, to: destination)
+
+        #expect(failed.isEmpty)
+        #expect(try Data(contentsOf: destination.appendingPathComponent("one.png")) == Data("one".utf8))
+        #expect(!FileManager.default.fileExists(atPath: destination.appendingPathComponent("two.png").path))
+    }
+
+    @Test func exportingReplacesAnExistingFileOfTheSameName() throws {
+        let storage = try FileStorageService(rootDirectory: makeTempRoot())
+        let destination = try makeTempRoot()
+        let projectID = UUID()
+        try storage.write(data: Data("new".utf8), fileName: "one.png", projectID: projectID)
+        try Data("old".utf8).write(to: destination.appendingPathComponent("one.png"))
+
+        let failed = storage.exportFiles(fileNames: ["one.png"], projectID: projectID, to: destination)
+
+        #expect(failed.isEmpty)
+        #expect(try Data(contentsOf: destination.appendingPathComponent("one.png")) == Data("new".utf8))
+    }
+
+    @Test func exportingIntoTheStorageFolderItselfKeepsTheBoardsFile() throws {
+        let storage = try FileStorageService(rootDirectory: makeTempRoot())
+        let projectID = UUID()
+        try storage.write(data: Data("one".utf8), fileName: "one.png", projectID: projectID)
+
+        let failed = storage.exportFiles(fileNames: ["one.png"], projectID: projectID, to: storage.imagesDirectory(projectID: projectID))
+
+        #expect(failed.isEmpty)
+        #expect(try Data(contentsOf: storage.fileURL(fileName: "one.png", projectID: projectID)) == Data("one".utf8))
+    }
+
+    @Test func exportingReportsAMissingFileWithoutTouchingItsExistingCopyAndStillCopiesTheRest() throws {
+        let storage = try FileStorageService(rootDirectory: makeTempRoot())
+        let destination = try makeTempRoot()
+        let projectID = UUID()
+        try storage.write(data: Data("two".utf8), fileName: "two.png", projectID: projectID)
+        try Data("earlier".utf8).write(to: destination.appendingPathComponent("missing.png"))
+
+        let failed = storage.exportFiles(fileNames: ["missing.png", "two.png"], projectID: projectID, to: destination)
+
+        #expect(failed == ["missing.png"])
+        #expect(try Data(contentsOf: destination.appendingPathComponent("missing.png")) == Data("earlier".utf8))
+        #expect(try Data(contentsOf: destination.appendingPathComponent("two.png")) == Data("two".utf8))
+    }
 }

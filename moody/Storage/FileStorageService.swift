@@ -47,4 +47,32 @@ nonisolated struct FileStorageService {
         let directory = imagesDirectory(projectID: projectID).deletingLastPathComponent()
         try FileManager.default.removeItem(at: directory)
     }
+
+    /// Copies each stored file into `folder`, replacing any file of the same
+    /// name. Returns the names that could not be copied; one failure doesn't
+    /// stop the rest.
+    func exportFiles(fileNames: [String], projectID: UUID, to folder: URL) -> [String] {
+        let fileManager = FileManager.default
+        var failed: [String] = []
+        for fileName in fileNames {
+            let source = fileURL(fileName: fileName, projectID: projectID)
+            let destination = folder.appendingPathComponent(fileName, isDirectory: false)
+            // Check the source first so a missing file never deletes the user's earlier copy.
+            guard fileManager.fileExists(atPath: source.path) else {
+                failed.append(fileName)
+                continue
+            }
+            // Exporting into the storage folder itself: already there; removing would delete the board's file.
+            guard source.standardizedFileURL != destination.standardizedFileURL else { continue }
+            do {
+                if fileManager.fileExists(atPath: destination.path) {
+                    try fileManager.removeItem(at: destination)
+                }
+                try fileManager.copyItem(at: source, to: destination)
+            } catch {
+                failed.append(fileName)
+            }
+        }
+        return failed
+    }
 }
